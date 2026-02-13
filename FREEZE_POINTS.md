@@ -31,7 +31,7 @@
 
 ---
 
-## Freeze Point 3: Content Preservation & UX Improvements
+## Freeze Point 3: Content Preservation & Frontend Improvements
 **Date & Time:** Third Commit 13-02-2026 12:53PM IST
 
 ### What was fixed:
@@ -46,7 +46,7 @@
 
 ---
 
-## Freeze Point 4: Advanced UX Features (Client-Side)
+## Freeze Point 4: Advanced Frontend Features (Client-Side)
 **Date & Time:** Fourth Commit 13-02-2026 1:47PM IST
 
 ### What was implemented:
@@ -63,3 +63,12 @@
 ### Decisions postponed:
 - **Export Format Validation**: Not validating that exported Markdown/HTML is well-formed before download.
 - **Preview Accuracy**: Preview shows what will be attempted, but can't guarantee AI will follow instructions exactly.
+
+---
+
+## Freeze Point 5: Documentation & Code cleanup
+**Date & Time:** Fifth Commit 13-02-2026 1:45PM IST
+
+### What was added:
+- **Comprehensive README.md**: Complete setup instructions
+- **Code cleanup**: Removed unnecessary console logs

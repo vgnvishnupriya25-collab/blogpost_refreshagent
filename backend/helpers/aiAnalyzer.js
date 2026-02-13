@@ -35,13 +35,13 @@ Respond in JSON format:
   ]
 }`;
 
-    console.log('The prompt is analyzeStructure:', prompt)
+    // console.log('The prompt is analyzeStructure:', prompt)
     const response = await genAI.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt
     });
     
-    console.log('The response is analyzeStructure:', response)
+    // console.log('The response is analyzeStructure:', response)
 
     const responseText = response.text;
     

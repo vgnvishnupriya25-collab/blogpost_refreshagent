@@ -64,7 +64,7 @@ export async function analyzeBlog(req, res) {
     }
 
     console.log(`Analyzing blog: "${title}"`);
-    console.log('The content in analyzeblog:', content)
+    // console.log('The content in analyzeblog:', content)
     // Parse the HTML to extract sections and links
     const $ = cheerio.load(content);
 
