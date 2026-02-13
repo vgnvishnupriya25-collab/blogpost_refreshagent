@@ -5,8 +5,9 @@ import './App.css';
 const API_URL = 'http://localhost:3001';
 
 function App() {
-  const [step, setStep] = useState('input'); // input, analyzing, approval, generating, complete
-  const [inputMode, setInputMode] = useState('url'); // 'url' or 'html'
+  //Instantiating state variables
+  const [step, setStep] = useState('input');
+  const [inputMode, setInputMode] = useState('url');
   const [blogUrl, setBlogUrl] = useState('');
   const [htmlInput, setHtmlInput] = useState('');
   const [blogContent, setBlogContent] = useState(null);
@@ -193,9 +194,7 @@ function App() {
                     {loading ? 'Fetching...' : 'Analyze Blog'}
                   </button>
                 </div>
-                <p className="example-text">
-                  Example: https://www.healthline.com/nutrition/healthy-eating-tips
-                </p>
+                
               </>
             ) : (
               <>
