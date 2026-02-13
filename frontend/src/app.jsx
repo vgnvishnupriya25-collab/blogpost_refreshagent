@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
+import { diffLines } from 'diff';
+import TurndownService from 'turndown';
+import parse from 'html-react-parser';
 import './App.css';
 
 const API_URL = 'http://localhost:3001';
+const turndownService = new TurndownService();
 
 function App() {
   //Instantiating state variables
@@ -17,6 +21,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [viewMode, setViewMode] = useState('side-by-side'); // 'side-by-side', 'diff'
 
   // Show toast notification
   const showToast = (message, type = 'success') => {
@@ -24,6 +29,34 @@ function App() {
     setTimeout(() => {
       setToast({ show: false, message: '', type: 'success' });
     }, 3000);
+  };
+
+  // Calculate diff between original and refreshed content
+  const calculateDiff = () => {
+    if (!blogContent || !refreshedContent) return [];
+    
+    const originalText = blogContent.content.replace(/<[^>]*>/g, '\n');
+    const refreshedText = refreshedContent.replace(/<[^>]*>/g, '\n');
+    
+    return diffLines(originalText, refreshedText);
+  };
+
+  // Export as Markdown
+  const exportAsMarkdown = () => {
+    const markdown = turndownService.turndown(refreshedContent);
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'refreshed-blog.md';
+    a.click();
+    showToast('Markdown file downloaded!');
+  };
+
+  // Go back to approval step (Undo)
+  const handleTryDifferentChanges = () => {
+    setStep('approval');
+    setRefreshedContent('');
   };
 
   // Step 1: Fetch blog content
@@ -334,6 +367,45 @@ function App() {
                 </button>
               </div>
             </div>
+
+            {/* Preview Section */}
+            {proposals.filter(p => p.approved).length > 0 && (
+              <div className="card preview-card">
+                <h2>📋 Preview of Changes</h2>
+                <p className="hint">
+                  Here's what will happen when you apply the approved changes:
+                </p>
+                
+                <div className="preview-list">
+                  {proposals.filter(p => p.approved && p.type === 'link-fixes').map((proposal) => (
+                    <div key={proposal.id} className="preview-item">
+                      <div className="preview-icon">🔗</div>
+                      <div className="preview-content">
+                        <strong>Link Fixes</strong>
+                        <p>{proposal.affectedLinks.length} broken links will be removed or replaced with placeholders</p>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {proposals.filter(p => p.approved && p.type === 'structure').map((proposal) => (
+                    <div key={proposal.id} className="preview-item">
+                      <div className="preview-icon">📐</div>
+                      <div className="preview-content">
+                        <strong>{proposal.title}</strong>
+                        <p>Sections {proposal.affectedSections.join(', ')} will be {proposal.action}ed</p>
+                        {proposal.newHeading && (
+                          <p className="preview-detail">New heading: "{proposal.newHeading}"</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="preview-note">
+                  <strong>Note:</strong> The AI will maintain all original information while applying these structural changes.
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -350,56 +422,103 @@ function App() {
         {step === 'complete' && (
           <div className="complete-section">
             <div className="card success-card">
-              <h2> Blog Refreshed Successfully!</h2>
+              <h2>✓ Blog Refreshed Successfully!</h2>
               <p>Your approved changes have been applied. Review the refreshed content below.</p>
             </div>
 
-            <div className="comparison">
-              <div className="card half">
-                <div className="content-header">
-                  <h3>Original Content</h3>
-                  <button 
-                    className="btn-copy"
-                    onClick={() => {
-                      navigator.clipboard.writeText(blogContent.content);
-                      showToast('Original content copied to clipboard!');
-                    }}
-                    title="Copy to clipboard"
-                  >
-                    📋 Copy
-                  </button>
-                </div>
-                <div 
-                  className="content-preview"
-                  dangerouslySetInnerHTML={{ __html: blogContent.content }}
-                />
-              </div>
-              
-              <div className="card half">
-                <div className="content-header">
-                  <h3>Refreshed Content</h3>
-                  <button 
-                    className="btn-copy"
-                    onClick={() => {
-                      navigator.clipboard.writeText(refreshedContent);
-                      showToast('Refreshed content copied to clipboard!');
-                    }}
-                    title="Copy to clipboard"
-                  >
-                    📋 Copy
-                  </button>
-                </div>
-                <div 
-                  className="content-preview"
-                  dangerouslySetInnerHTML={{ __html: refreshedContent }}
-                />
+            {/* View Mode Toggle */}
+            <div className="card">
+              <div className="view-mode-toggle">
+                <button 
+                  className={`view-btn ${viewMode === 'side-by-side' ? 'active' : ''}`}
+                  onClick={() => setViewMode('side-by-side')}
+                >
+                  📄 Side by Side
+                </button>
+                <button 
+                  className={`view-btn ${viewMode === 'diff' ? 'active' : ''}`}
+                  onClick={() => setViewMode('diff')}
+                >
+                  🔍 Diff View
+                </button>
               </div>
             </div>
 
+            {/* Side by Side View */}
+            {viewMode === 'side-by-side' && (
+              <div className="comparison">
+                <div className="card half">
+                  <div className="content-header">
+                    <h3>Original Content</h3>
+                    <button 
+                      className="btn-copy"
+                      onClick={() => {
+                        navigator.clipboard.writeText(blogContent.content);
+                        showToast('Original content copied to clipboard!');
+                      }}
+                      title="Copy to clipboard"
+                    >
+                      📋 Copy
+                    </button>
+                  </div>
+                  <div 
+                    className="content-preview"
+                    dangerouslySetInnerHTML={{ __html: blogContent.content }}
+                  />
+                </div>
+                
+                <div className="card half">
+                  <div className="content-header">
+                    <h3>Refreshed Content</h3>
+                    <button 
+                      className="btn-copy"
+                      onClick={() => {
+                        navigator.clipboard.writeText(refreshedContent);
+                        showToast('Refreshed content copied to clipboard!');
+                      }}
+                      title="Copy to clipboard"
+                    >
+                      📋 Copy
+                    </button>
+                  </div>
+                  <div 
+                    className="content-preview"
+                    dangerouslySetInnerHTML={{ __html: refreshedContent }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Diff View */}
+            {viewMode === 'diff' && (
+              <div className="card">
+                <h3>Changes Made</h3>
+                <div className="diff-view">
+                  {calculateDiff().map((part, index) => (
+                    <div
+                      key={index}
+                      className={`diff-line ${
+                        part.added ? 'added' : part.removed ? 'removed' : 'unchanged'
+                      }`}
+                    >
+                      {part.added && <span className="diff-marker">+ </span>}
+                      {part.removed && <span className="diff-marker">- </span>}
+                      {!part.added && !part.removed && <span className="diff-marker">  </span>}
+                      <span className="diff-content">{part.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
             <div className="card">
               <div className="final-actions">
-                <button onClick={handleReset} className="btn-primary">
-                  Refresh Another Blog
+                <button onClick={handleTryDifferentChanges} className="btn-secondary">
+                  ← Try Different Changes
+                </button>
+                <button onClick={handleReset} className="btn-secondary">
+                  🔄 Refresh Another Blog
                 </button>
                 <button 
                   onClick={() => {
@@ -409,10 +528,17 @@ function App() {
                     a.href = url;
                     a.download = 'refreshed-blog.html';
                     a.click();
+                    showToast('HTML file downloaded!');
                   }}
-                  className="btn-secondary"
+                  className="btn-primary"
                 >
-                  Download HTML
+                  📥 Download HTML
+                </button>
+                <button 
+                  onClick={exportAsMarkdown}
+                  className="btn-primary"
+                >
+                  📝 Download Markdown
                 </button>
               </div>
             </div>

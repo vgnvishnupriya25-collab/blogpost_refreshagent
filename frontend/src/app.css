@@ -455,3 +455,161 @@
 .footer p {
   opacity: 0.8;
 }
+
+/* View Mode Toggle */
+.view-mode-toggle {
+  display: flex;
+  gap: 0.5rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.25rem;
+  background: #f7fafc;
+}
+
+.view-btn {
+  flex: 1;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-btn.active {
+  background: white;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  color: #667eea;
+}
+
+.view-btn:hover:not(.active) {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+/* Diff View Styles */
+.diff-view {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.diff-line {
+  display: flex;
+  padding: 0.25rem 0.5rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.diff-line.added {
+  background: #c6f6d5;
+  border-left: 3px solid #48bb78;
+}
+
+.diff-line.removed {
+  background: #fed7d7;
+  border-left: 3px solid #f56565;
+}
+
+.diff-line.unchanged {
+  background: transparent;
+  color: #718096;
+}
+
+.diff-marker {
+  font-weight: bold;
+  margin-right: 0.5rem;
+  min-width: 1.5rem;
+}
+
+.diff-line.added .diff-marker {
+  color: #2f855a;
+}
+
+.diff-line.removed .diff-marker {
+  color: #c53030;
+}
+
+.diff-content {
+  flex: 1;
+}
+
+/* Enhanced Final Actions */
+.final-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.final-actions button {
+  min-width: 150px;
+}
+
+/* Preview Card */
+.preview-card {
+  background: linear-gradient(135deg, #fef5e7 0%, #fdebd0 100%);
+  border: 2px solid #f39c12;
+}
+
+.preview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.preview-item {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+}
+
+.preview-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.preview-content {
+  flex: 1;
+}
+
+.preview-content strong {
+  display: block;
+  color: #2d3748;
+  margin-bottom: 0.5rem;
+}
+
+.preview-content p {
+  color: #4a5568;
+  margin: 0.25rem 0;
+  font-size: 0.95rem;
+}
+
+.preview-detail {
+  font-style: italic;
+  color: #718096;
+  font-size: 0.9rem;
+}
+
+.preview-note {
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid #48bb78;
+  color: #2d3748;
+  font-size: 0.95rem;
+}
+
+.preview-note strong {
+  color: #48bb78;
+}

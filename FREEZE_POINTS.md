@@ -43,3 +43,23 @@
 
 ### Decisions postponed:
 - **Token Usage Tracking**: Not tracking or displaying API token usage or costs to user.
+
+---
+
+## Freeze Point 4: Advanced UX Features (Client-Side)
+**Date & Time:** Fourth Commit 13-02-2026 1:47PM IST
+
+### What was implemented:
+- **Diff Visualization**: Toggle between side-by-side and diff view modes. Diff view shows line-by-line changes with color coding (green=added, red=removed, gray=unchanged).
+- **Undo/Redo**: "Try Different Changes" button returns to approval step with cached analysis. Users can modify proposal selections without new API calls.
+- **Markdown Export**: Added "Download Markdown" button using `turndown` library for HTML Markdown conversion.
+- **Preview Mode**: Shows preview card listing exactly what changes will be applied before generation. No API calls needed.
+- **Toast Notifications**: Replaced browser alerts with styled toast notifications that auto-dismiss after 3 seconds.
+
+### What feels unclear or risky:
+- **Memory Usage**: Keeping full analysis results in state for undo functionality. Large blogs could increase memory footprint.
+- **Diff Performance**: Calculating diff on every render when in diff view mode. Should memoize for large content.
+
+### Decisions postponed:
+- **Export Format Validation**: Not validating that exported Markdown/HTML is well-formed before download.
+- **Preview Accuracy**: Preview shows what will be attempted, but can't guarantee AI will follow instructions exactly.
