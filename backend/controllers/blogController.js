@@ -1,5 +1,5 @@
 import axios from 'axios';
-import * as cheerio from 'cheerio';
+import * as cheerio from 'cheerio';  //Converts HTML strings into a structure you can query
 import { evaluateLinks } from '../helpers/linkChecker.js';
 import { analyzeStructure, generateProposals, applyChanges } from '../helpers/aiAnalyzer.js';
 
@@ -13,7 +13,9 @@ export async function fetchBlog(req, res) {
     }
 
     // Fetch the blog content
-    const response = await axios.get(url, {
+    // axios sends a default User-Agent like 1.6.0 or node, which many websites block because they want to prevent bots and scrapers.
+    // By setting it to this value, the backend pretends to be a regular Chrome browser on Windows. 
+   const response = await axios.get(url, {
       timeout: 10000,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -33,6 +35,7 @@ export async function fetchBlog(req, res) {
     // Extract title
     const title = $('h1').first().text() || $('title').text() || 'Untitled';
 
+    console.log('The html content:',content, 'and the title is:', title)
     res.json({
       success: true,
       data: {
@@ -61,7 +64,7 @@ export async function analyzeBlog(req, res) {
     }
 
     console.log(`Analyzing blog: "${title}"`);
-
+    console.log('The content in analyzeblog:', content)
     // Parse the HTML to extract sections and links
     const $ = cheerio.load(content);
 

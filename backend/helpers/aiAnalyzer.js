@@ -35,11 +35,14 @@ Respond in JSON format:
   ]
 }`;
 
+    console.log('The prompt is analyzeStructure:', prompt)
     const response = await genAI.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt
     });
     
+    console.log('The response is analyzeStructure:', response)
+
     const responseText = response.text;
     
     // Extract JSON from response
@@ -120,16 +123,18 @@ export async function applyChanges(originalContent, approvedProposals, originalS
     const structureProposals = approvedProposals.filter(p => p.type === 'structure');
     
     if (structureProposals.length > 0) {
-      // Use Gemini to generate merged/rewritten content
+      // Use Gemini to generate merged/rewritten content with FULL original content
       const prompt = `You are refreshing a blog post by applying approved structural changes.
 
-Original sections:
+FULL ORIGINAL CONTENT:
+${originalContent}
+
+ORIGINAL SECTIONS BREAKDOWN:
 ${originalSections.map((s, i) => `
 Section ${i}: ${s.heading}
-${s.content.substring(0, 200)}...
 `).join('\n')}
 
-Approved changes:
+APPROVED CHANGES TO APPLY:
 ${structureProposals.map(p => `
 - ${p.action}: ${p.description}
   Rationale: ${p.rationale}
@@ -137,10 +142,17 @@ ${structureProposals.map(p => `
   ${p.newHeading ? `New heading: ${p.newHeading}` : ''}
 `).join('\n')}
 
-Generate the refreshed content with the approved structural changes applied. 
-Maintain the original tone and key information, but improve clarity and organization.
-Return only the HTML content for the refreshed sections.`;
+INSTRUCTIONS:
+1. Apply the approved structural changes to the original content
+2. Maintain ALL the original information, examples, and details
+3. Keep the same writing style and tone
+4. Only reorganize the structure as specified in the approved changes
+5. Return the complete refreshed HTML content
 
+Generate the refreshed content now:`;
+
+      console.log('Applying changes with full original content...');
+      
       const response = await genAI.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: prompt
@@ -149,6 +161,7 @@ Return only the HTML content for the refreshed sections.`;
       return response.text;
     }
 
+    // If no structure changes, just return content with link fixes applied
     return $.html();
   } catch (error) {
     console.error('Error in applyChanges:', error);

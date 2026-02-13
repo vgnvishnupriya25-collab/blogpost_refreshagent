@@ -28,3 +28,18 @@
 ### Decisions postponed:
 - **Proposal Approval Flow**: Currently just receives approved proposals. No validation if proposals are valid or if sections still exist.
 - **Content Size Limits**: No limits on blog content size. Very large blogs could exceed AI token limits or cause timeouts.
+
+---
+
+## Freeze Point 3: Content Preservation & UX Improvements
+**Date & Time:** Third Commit 13-02-2026 12:30PM IST
+
+### What was fixed:
+- **Content Preservation Issue**: Fixed `applyChanges()` to send full original content instead of truncated summaries (200 chars). AI now has complete context to preserve all information.
+- **Copy Feature**: Added clipboard copy buttons for both Original and Refreshed content sections for easy content extraction.
+
+### What feels unclear or risky:
+- **Token Limits**: Now sending full blog content to Gemini. Very long blogs might exceed model's context window (unknown exact limit for gemini-2.5-flash).
+
+### Decisions postponed:
+- **Token Usage Tracking**: Not tracking or displaying API token usage or costs to user.

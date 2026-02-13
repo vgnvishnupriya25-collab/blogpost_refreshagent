@@ -179,6 +179,39 @@
   padding: 0.25rem 0.5rem;
 }
 
+.toast {
+  position: fixed;
+  top: 2rem;
+  right: 2rem;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  animation: slideIn 0.3s ease-out;
+  z-index: 1000;
+}
+
+.toast.success {
+  background: #48bb78;
+  color: white;
+}
+
+.toast.error {
+  background: #f56565;
+  color: white;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(400px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 .loading-card {
   text-align: center;
   padding: 3rem 2rem;
@@ -356,6 +389,42 @@
   .comparison {
     grid-template-columns: 1fr;
   }
+}
+
+.content-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.content-header h3 {
+  margin: 0;
+}
+
+.btn-copy {
+  padding: 0.5rem 1rem;
+  border: 2px solid #667eea;
+  border-radius: 6px;
+  background: white;
+  color: #667eea;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.btn-copy:hover {
+  background: #667eea;
+  color: white;
+  transform: translateY(-1px);
+}
+
+.btn-copy:active {
+  transform: translateY(0);
 }
 
 .content-preview {

@@ -16,6 +16,15 @@ function App() {
   const [refreshedContent, setRefreshedContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  // Show toast notification
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast({ show: false, message: '', type: 'success' });
+    }, 3000);
+  };
 
   // Step 1: Fetch blog content
   const handleFetchBlog = async () => {
@@ -150,6 +159,12 @@ function App() {
           <div className="error-banner">
             <strong>Error:</strong> {error}
             <button onClick={() => setError('')}>✕</button>
+          </div>
+        )}
+
+        {toast.show && (
+          <div className={`toast ${toast.type}`}>
+            {toast.type === 'success' ? '✓' : '⚠'} {toast.message}
           </div>
         )}
 
@@ -341,7 +356,19 @@ function App() {
 
             <div className="comparison">
               <div className="card half">
-                <h3>Original Content</h3>
+                <div className="content-header">
+                  <h3>Original Content</h3>
+                  <button 
+                    className="btn-copy"
+                    onClick={() => {
+                      navigator.clipboard.writeText(blogContent.content);
+                      showToast('Original content copied to clipboard!');
+                    }}
+                    title="Copy to clipboard"
+                  >
+                    📋 Copy
+                  </button>
+                </div>
                 <div 
                   className="content-preview"
                   dangerouslySetInnerHTML={{ __html: blogContent.content }}
@@ -349,7 +376,19 @@ function App() {
               </div>
               
               <div className="card half">
-                <h3>Refreshed Content</h3>
+                <div className="content-header">
+                  <h3>Refreshed Content</h3>
+                  <button 
+                    className="btn-copy"
+                    onClick={() => {
+                      navigator.clipboard.writeText(refreshedContent);
+                      showToast('Refreshed content copied to clipboard!');
+                    }}
+                    title="Copy to clipboard"
+                  >
+                    📋 Copy
+                  </button>
+                </div>
                 <div 
                   className="content-preview"
                   dangerouslySetInnerHTML={{ __html: refreshedContent }}
