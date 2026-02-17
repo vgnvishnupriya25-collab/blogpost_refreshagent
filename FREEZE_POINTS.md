@@ -72,3 +72,15 @@
 ### What was added:
 - **Comprehensive README.md**: Complete setup instructions
 - **Code cleanup**: Removed unnecessary console logs
+
+
+---
+
+## Freeze Point 6: Enhanced AI Prompt to suggest the corrections properly
+**Date & Time:** Sixth Commit 17-02-2026 10:40AM IST
+
+### What was implemented:
+- **AI Prompt enhancement**: Changed the analyzeStructure() function AI prompt to only suggest the improvements when it's sensible. Also classified the changes into high, medium, low and now only considering high, medium level of changes. If the merge changes ratio is above 60% then considering that as an aggressive change and skipping it.
+- **Broken link improvement**: Updated the timeout to have 30sec so that even if some of the links take some time to reach their server then it'll consider it instead of removing it.
+- **UI improvement for Side by Side view**: Improved side by side view to Sync the scroll for Original Context and Refreshed context.
+- **UI improvement for Diff view**: Removed the HTML tags from Diff view tab and added the actual content in it show the actual changes. 

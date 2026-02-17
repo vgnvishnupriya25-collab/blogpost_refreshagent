@@ -11,7 +11,7 @@ export async function evaluateLinks(links) {
     try {
       // axios HEAD request, which is like a GET request but only returns the headers, no body content.
       const response = await axios.head(link.url, {
-        timeout: 5000,
+        timeout: 50000,
         maxRedirects: 5,
         validateStatus: (status) => status < 500
       });

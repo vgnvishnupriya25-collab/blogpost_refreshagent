@@ -22,6 +22,7 @@ function App() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [viewMode, setViewMode] = useState('side-by-side'); // 'side-by-side', 'diff'
+  const [syncScroll, setSyncScroll] = useState(true); // Synchronized scrolling
 
   // Show toast notification
   const showToast = (message, type = 'success') => {
@@ -35,10 +36,21 @@ function App() {
   const calculateDiff = () => {
     if (!blogContent || !refreshedContent) return [];
     
-    const originalText = blogContent.content.replace(/<[^>]*>/g, '\n');
-    const refreshedText = refreshedContent.replace(/<[^>]*>/g, '\n');
+    // Convert HTML to readable text by extracting text content
+    const stripHtml = (html) => {
+      const temp = document.createElement('div');
+      temp.innerHTML = html;
+      return temp.textContent || temp.innerText || '';
+    };
     
-    return diffLines(originalText, refreshedText);
+    const originalText = stripHtml(blogContent.content);
+    const refreshedText = stripHtml(refreshedContent);
+    
+    // Split by sentences for better readability
+    const originalSentences = originalText.split(/(?<=[.!?])\s+/).filter(s => s.trim());
+    const refreshedSentences = refreshedText.split(/(?<=[.!?])\s+/).filter(s => s.trim());
+    
+    return diffLines(originalSentences.join('\n'), refreshedSentences.join('\n'));
   };
 
   // Export as Markdown
@@ -57,6 +69,79 @@ function App() {
   const handleTryDifferentChanges = () => {
     setStep('approval');
     setRefreshedContent('');
+  };
+
+  // Calculate final section count after approved changes
+  const calculateFinalSectionCount = () => {
+    if (!analysis) return 0;
+    
+    let count = analysis.sections.length;
+    const approvedStructureProposals = proposals.filter(p => p.approved && p.type === 'structure');
+    
+    approvedStructureProposals.forEach(proposal => {
+      if (proposal.action === 'merge') {
+        // Merging reduces count by (affected sections - 1)
+        count -= (proposal.affectedSections.length - 1);
+      } else if (proposal.action === 'remove') {
+        count -= proposal.affectedSections.length;
+      }
+    });
+    
+    return count;
+  };
+
+  // Generate projected structure showing what sections will look like
+  const generateProjectedStructure = () => {
+    if (!analysis) return [];
+    
+    const approvedStructureProposals = proposals.filter(p => p.approved && p.type === 'structure');
+    const projectedSections = [];
+    const processedIndices = new Set();
+    
+    analysis.sections.forEach((section, idx) => {
+      if (processedIndices.has(idx)) return;
+      
+      // Check if this section is affected by any proposal
+      const affectingProposal = approvedStructureProposals.find(p => 
+        p.affectedSections.includes(idx)
+      );
+      
+      if (affectingProposal) {
+        if (affectingProposal.action === 'merge') {
+          // Add merged section
+          projectedSections.push({
+            heading: affectingProposal.newHeading || section.heading,
+            isNew: true,
+            isModified: false,
+            isRemoved: false
+          });
+          // Mark all merged sections as processed
+          affectingProposal.affectedSections.forEach(i => processedIndices.add(i));
+        } else if (affectingProposal.action === 'remove') {
+          // Skip removed sections
+          processedIndices.add(idx);
+        } else if (affectingProposal.action === 'rewrite') {
+          projectedSections.push({
+            heading: affectingProposal.newHeading || section.heading,
+            isNew: false,
+            isModified: true,
+            isRemoved: false
+          });
+          processedIndices.add(idx);
+        }
+      } else {
+        // Keep unchanged section
+        projectedSections.push({
+          heading: section.heading,
+          isNew: false,
+          isModified: false,
+          isRemoved: false
+        });
+        processedIndices.add(idx);
+      }
+    });
+    
+    return projectedSections;
   };
 
   // Step 1: Fetch blog content
@@ -371,34 +456,71 @@ function App() {
             {/* Preview Section */}
             {proposals.filter(p => p.approved).length > 0 && (
               <div className="card preview-card">
-                <h2>📋 Preview of Changes</h2>
+                <h2>📋 Preview: Projected Final Structure</h2>
                 <p className="hint">
-                  Here's what will happen when you apply the approved changes:
+                  Here's what your blog structure will look like after applying the approved changes:
                 </p>
                 
-                <div className="preview-list">
-                  {proposals.filter(p => p.approved && p.type === 'link-fixes').map((proposal) => (
-                    <div key={proposal.id} className="preview-item">
-                      <div className="preview-icon">🔗</div>
-                      <div className="preview-content">
-                        <strong>Link Fixes</strong>
-                        <p>{proposal.affectedLinks.length} broken links will be removed or replaced with placeholders</p>
-                      </div>
+                {/* Show projected structure */}
+                <div className="projected-structure">
+                  <h3>Current Structure → Final Structure</h3>
+                  <div className="structure-comparison">
+                    <div className="structure-column">
+                      <h4>Current ({analysis.sections.length} sections)</h4>
+                      <ol className="section-list current">
+                        {analysis.sections.map((section, idx) => (
+                          <li key={idx} className="section-item">
+                            {section.heading}
+                          </li>
+                        ))}
+                      </ol>
                     </div>
-                  ))}
-                  
-                  {proposals.filter(p => p.approved && p.type === 'structure').map((proposal) => (
-                    <div key={proposal.id} className="preview-item">
-                      <div className="preview-icon">📐</div>
-                      <div className="preview-content">
-                        <strong>{proposal.title}</strong>
-                        <p>Sections {proposal.affectedSections.join(', ')} will be {proposal.action}ed</p>
-                        {proposal.newHeading && (
-                          <p className="preview-detail">New heading: "{proposal.newHeading}"</p>
-                        )}
-                      </div>
+                    
+                    <div className="structure-arrow">→</div>
+                    
+                    <div className="structure-column">
+                      <h4>After Changes ({calculateFinalSectionCount()} sections)</h4>
+                      <ol className="section-list projected">
+                        {generateProjectedStructure().map((section, idx) => (
+                          <li 
+                            key={idx} 
+                            className={`section-item ${section.isNew ? 'new' : ''} ${section.isModified ? 'modified' : ''} ${section.isRemoved ? 'removed' : ''}`}
+                          >
+                            {section.heading}
+                            {section.isNew && <span className="badge-new">New</span>}
+                            {section.isModified && <span className="badge-modified">Modified</span>}
+                            {section.isRemoved && <span className="badge-removed">Removed</span>}
+                          </li>
+                        ))}
+                      </ol>
                     </div>
-                  ))}
+                  </div>
+                </div>
+
+                {/* Action summary */}
+                <div className="preview-summary">
+                  <h3>Changes Summary</h3>
+                  <div className="preview-list">
+                    {proposals.filter(p => p.approved && p.type === 'link-fixes').map((proposal) => (
+                      <div key={proposal.id} className="preview-item">
+                        <div className="preview-icon">🔗</div>
+                        <div className="preview-content">
+                          <strong>Link Fixes</strong>
+                          <p>{proposal.affectedLinks.length} broken links will be removed or replaced</p>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {proposals.filter(p => p.approved && p.type === 'structure').map((proposal) => (
+                      <div key={proposal.id} className="preview-item">
+                        <div className="preview-icon">📐</div>
+                        <div className="preview-content">
+                          <strong>{proposal.title}</strong>
+                          <p>{proposal.rationale}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="preview-note">
@@ -428,19 +550,32 @@ function App() {
 
             {/* View Mode Toggle */}
             <div className="card">
-              <div className="view-mode-toggle">
-                <button 
-                  className={`view-btn ${viewMode === 'side-by-side' ? 'active' : ''}`}
-                  onClick={() => setViewMode('side-by-side')}
-                >
-                  📄 Side by Side
-                </button>
-                <button 
-                  className={`view-btn ${viewMode === 'diff' ? 'active' : ''}`}
-                  onClick={() => setViewMode('diff')}
-                >
-                  🔍 Diff View
-                </button>
+              <div className="view-controls">
+                <div className="view-mode-toggle">
+                  <button 
+                    className={`view-btn ${viewMode === 'side-by-side' ? 'active' : ''}`}
+                    onClick={() => setViewMode('side-by-side')}
+                  >
+                    📄 Side by Side
+                  </button>
+                  <button 
+                    className={`view-btn ${viewMode === 'diff' ? 'active' : ''}`}
+                    onClick={() => setViewMode('diff')}
+                  >
+                    🔍 Diff View
+                  </button>
+                </div>
+                
+                {viewMode === 'side-by-side' && (
+                  <label className="sync-scroll-toggle">
+                    <input 
+                      type="checkbox" 
+                      checked={syncScroll}
+                      onChange={(e) => setSyncScroll(e.target.checked)}
+                    />
+                    <span>Sync Scroll</span>
+                  </label>
+                )}
               </div>
             </div>
 
@@ -463,6 +598,15 @@ function App() {
                   </div>
                   <div 
                     className="content-preview"
+                    id="original-content"
+                    onScroll={(e) => {
+                      if (syncScroll) {
+                        const refreshed = document.getElementById('refreshed-content');
+                        if (refreshed) {
+                          refreshed.scrollTop = e.target.scrollTop;
+                        }
+                      }
+                    }}
                     dangerouslySetInnerHTML={{ __html: blogContent.content }}
                   />
                 </div>
@@ -483,6 +627,15 @@ function App() {
                   </div>
                   <div 
                     className="content-preview"
+                    id="refreshed-content"
+                    onScroll={(e) => {
+                      if (syncScroll) {
+                        const original = document.getElementById('original-content');
+                        if (original) {
+                          original.scrollTop = e.target.scrollTop;
+                        }
+                      }
+                    }}
                     dangerouslySetInnerHTML={{ __html: refreshedContent }}
                   />
                 </div>
@@ -492,21 +645,44 @@ function App() {
             {/* Diff View */}
             {viewMode === 'diff' && (
               <div className="card">
-                <h3>Changes Made</h3>
+                <div className="diff-header">
+                  <h3>Changes Made</h3>
+                  <div className="diff-stats">
+                    <span className="stat-added">+{calculateDiff().filter(p => p.added).length} additions</span>
+                    <span className="stat-removed">-{calculateDiff().filter(p => p.removed).length} deletions</span>
+                  </div>
+                </div>
+                <p className="hint">
+                  Showing text-level changes. Large structural changes may show many differences. Use side-by-side view for easier comparison.
+                </p>
                 <div className="diff-view">
-                  {calculateDiff().map((part, index) => (
-                    <div
-                      key={index}
-                      className={`diff-line ${
-                        part.added ? 'added' : part.removed ? 'removed' : 'unchanged'
-                      }`}
-                    >
-                      {part.added && <span className="diff-marker">+ </span>}
-                      {part.removed && <span className="diff-marker">- </span>}
-                      {!part.added && !part.removed && <span className="diff-marker">  </span>}
-                      <span className="diff-content">{part.value}</span>
+                  {calculateDiff().slice(0, 200).map((part, index) => {
+                    // Skip very short or empty lines
+                    const trimmedValue = part.value.trim();
+                    if (!trimmedValue || trimmedValue.length < 3) return null;
+                    
+                    // Split long values into multiple lines for readability
+                    const lines = trimmedValue.split('\n').filter(line => line.trim());
+                    
+                    return lines.map((line, lineIndex) => (
+                      <div
+                        key={`${index}-${lineIndex}`}
+                        className={`diff-line ${
+                          part.added ? 'added' : part.removed ? 'removed' : 'unchanged'
+                        }`}
+                      >
+                        <span className="diff-marker">
+                          {part.added ? '+ ' : part.removed ? '- ' : '  '}
+                        </span>
+                        <span className="diff-content">{line}</span>
+                      </div>
+                    ));
+                  })}
+                  {calculateDiff().length > 200 && (
+                    <div className="diff-truncated">
+                      ... {calculateDiff().length - 200} more changes (showing first 200 for performance)
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             )}
