@@ -6,48 +6,49 @@ dotenv.config();
 
 const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
 
-// Analyze structure with Gemini
+// Analyze structure with Gemini - balanced approach
 export async function analyzeStructure(sections, title) {
   try {
-    const prompt = `You are an expert content strategist analyzing a blog post titled "${title}".
+    const sectionList = sections.map((s, i) => `${i}. "${s.heading}"`).join('\n');
 
-Current structure has ${sections.length} sections:
-${sections.map((s, i) => `${i}. ${s.heading}`).join('\n')}
+    const prompt = `You are an editorial assistant reviewing a blog post titled "${title}".
 
-ANALYSIS GUIDELINES:
-- Look for sections that cover overlapping topics and could be merged for better flow
-- Identify sections that are too granular and would benefit from consolidation
-- Suggest improvements that genuinely enhance readability and user experience
-- Be thoughtful but not overly conservative - good structure matters
-- Aim for 4-7 well-organized sections as a general guideline (not a hard rule)
+The blog has ${sections.length} sections:
+${sectionList}
 
-WHEN TO SUGGEST CHANGES:
-Two sections cover the same topic from different angles → merge them
-Very short sections that could be combined with related content
-Sections with overlapping themes that break up the narrative flow
-Redundant introductory or concluding sections
+Your job is to identify ONLY genuine structural problems. Use these clear criteria:
 
-WHEN NOT TO SUGGEST CHANGES:
-Sections cover distinct topics even if related
-Each section serves a unique purpose for the reader
-Current structure already flows logically
+SUGGEST A MERGE when:
+- Two sections have almost identical headings
+- Two sections clearly discuss the same concept
+- One section is obviously an extension of another
 
-Respond in this exact JSON format:
+DO NOT SUGGEST A MERGE when:
+- Sections are related but cover different aspects
+- You are unsure whether they overlap - only suggest if it is obvious from the headings alone
+- Sections are already well-named and distinct
+
+IMPORTANT RULES:
+- Suggest "rewrite", "remove", "keep" and "merge"
+- Only suggest merges you are highly confident about
+- Each merge should combine exactly 2 sections (not 3 or more)
+- If there are no obvious merges, return needsRestructuring: false with empty suggestions array
+- Do not try to force the blog into a certain number of sections
+
+Return ONLY this JSON with no extra text:
 {
-  "needsRestructuring": true/false,
+  "needsRestructuring": true or false,
   "currentSectionCount": ${sections.length},
-  "restructuringReason": "brief explanation",
+  "restructuringReason": "one sentence explaining your decision",
   "suggestions": [
     {
       "action": "merge|rewrite|keep|remove",
-      "affectedSections": [section indices starting from 0],
+      "affectedSections": [indexA, indexB],
       "newHeading": "proposed heading only if merging",
-      "rationale": "specific reason why THIS merge genuinely improves the post",
-      "confidenceLevel": "high|medium|low"
+      "rationale": "one sentence: why these two specifically overlap"
     }
   ]
-}
-Be specific and actionable. Only suggest changes you're confident will improve the post.`;
+}`;
 
     const response = await genAI.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -55,131 +56,119 @@ Be specific and actionable. Only suggest changes you're confident will improve t
     });
 
     const responseText = response.text;
-    console.log('AI Structure Analysis Response:', responseText);
+    console.log('Raw AI response:', responseText);
 
-    // Extract JSON from response
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
+    // Extract JSON - handle cases where AI wraps in code blocks
+    const cleaned = responseText
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim();
 
-      // Filter to only high and medium confidence suggestions
-      if (parsed.suggestions) {
-        parsed.suggestions = parsed.suggestions.filter(s =>
-          (s.confidenceLevel === 'high' || s.confidenceLevel === 'medium')
-        );
-      }
-
-      // If no suggestions remain after filtering, mark as no restructuring needed
-      if (!parsed.suggestions || parsed.suggestions.length === 0) {
-        parsed.needsRestructuring = false;
-        parsed.restructuringReason = parsed.restructuringReason || 'No high-confidence improvements identified';
-      }
-
-      console.log('Parsed structure analysis:', JSON.stringify(parsed, null, 2));
-      return parsed;
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.log('No JSON found in response, returning safe default');
+      return buildDefault(sections.length);
     }
 
-    return {
-      needsRestructuring: false,
-      currentSectionCount: sections.length,
-      restructuringReason: 'Unable to parse AI response',
-      suggestions: []
-    };
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    // --- Safety validations ---
+
+    // 1. Ensure suggestions array exists
+    if (!Array.isArray(parsed.suggestions)) {
+      parsed.suggestions = [];
+    }
+
+    // 2. Remove any merge that does not have exactly 2 sections
+    parsed.suggestions = parsed.suggestions.filter(s => {
+      const valid = Array.isArray(s.affectedSections) && s.affectedSections.length === 2;
+      if (!valid) console.log('Removed invalid suggestion (not exactly 2 sections):', s);
+      return valid;
+    });
+
+    // 3. Remove any suggestion where section indices are out of bounds
+    parsed.suggestions = parsed.suggestions.filter(s => {
+      const inBounds = s.affectedSections.every(i => i >= 0 && i < sections.length);
+      if (!inBounds) console.log('Removed out-of-bounds suggestion:', s);
+      return inBounds;
+    });
+
+    // 4. Remove duplicate suggestions (same pair of sections)
+    const seen = new Set();
+    parsed.suggestions = parsed.suggestions.filter(s => {
+      const key = [...s.affectedSections].sort().join('-');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // 5. Sync needsRestructuring with actual suggestions
+    parsed.needsRestructuring = parsed.suggestions.length > 0;
+
+    console.log('Final structure analysis:', JSON.stringify(parsed, null, 2));
+    return parsed;
+
   } catch (error) {
     console.error('Error in analyzeStructure:', error);
-    throw error;
+    return buildDefault(sections.length);
   }
 }
 
-// Generate improvement proposals - with confidence filtering and aggressive change detection
+function buildDefault(sectionCount) {
+  return {
+    needsRestructuring: false,
+    currentSectionCount: sectionCount,
+    restructuringReason: 'No structural issues detected',
+    suggestions: []
+  };
+}
+
+// Generate improvement proposals
 export function generateProposals(sections, linkEvals, structureAnalysis) {
   try {
     const proposals = [];
 
-    // Link replacement proposals
+    // --- Link proposals ---
     const brokenLinks = linkEvals.filter(l => !l.working);
     if (brokenLinks.length > 0) {
       proposals.push({
         id: 'proposal-links',
         type: 'link-fixes',
         title: 'Fix Broken Links',
-        description: `Found ${brokenLinks.length} broken or inaccessible links that should be updated or removed.`,
+        description: `Found ${brokenLinks.length} broken or inaccessible link${brokenLinks.length > 1 ? 's' : ''} that should be updated or removed.`,
         affectedLinks: brokenLinks,
         rationale: 'Broken links harm user experience and SEO. These links return errors or are unreachable.',
         approved: false
       });
     }
 
-    // Structure proposals with safety checks
+    // --- Structure proposals ---
     if (structureAnalysis.needsRestructuring && structureAnalysis.suggestions.length > 0) {
-      console.log(`Processing ${structureAnalysis.suggestions.length} structure suggestions`);
+      for (let i = 0; i < structureAnalysis.suggestions.length; i++) {
+        const suggestion = structureAnalysis.suggestions[i];
 
-      // Filter to only high and medium confidence suggestions
-      const highMediumSuggestions = structureAnalysis.suggestions.filter(s => 
-        s.confidenceLevel === 'high' || s.confidenceLevel === 'medium'
-      );
-
-      console.log(`Filtered to ${highMediumSuggestions.length} high/medium confidence suggestions`);
-
-      if (highMediumSuggestions.length === 0) {
-        console.log('No high/medium confidence suggestions found');
-        return proposals;
-      }
-
-      // Calculate merge ratio to detect aggressive changes
-      const totalAffectedSections = highMediumSuggestions
-        .filter(s => s.action === 'merge')
-        .reduce((acc, s) => acc + (s.affectedSections?.length || 0), 0);
-
-      // const mergeRatio = totalAffectedSections / sections.length;
-
-      // // If merging more than 60% of sections, it's too aggressive - skip all structure changes
-      // if (mergeRatio > 0.3) {
-      //   console.log(`Skipping all structure changes: too aggressive (${Math.round(mergeRatio * 100)}% of sections would be merged)`);
-      //   return proposals;
-      // }
-
-      // Process each suggestion
-      for (let i = 0; i < highMediumSuggestions.length; i++) {
-        const suggestion = highMediumSuggestions[i];
-
-        // Validate suggestion has required fields
-        if (!suggestion.affectedSections || suggestion.affectedSections.length === 0) {
-          console.log('Skipping suggestion with no affected sections');
-          continue;
-        }
-
-        // Skip bulk merges (more than 3 sections at once)
-        if (suggestion.action === 'merge' && suggestion.affectedSections.length > 3) {
-          console.log(`Skipping bulk merge of ${suggestion.affectedSections.length} sections - too aggressive`);
-          continue;
-        }
-
-        // Create user-friendly description
-        const sectionNames = suggestion.affectedSections
-          .map(idx => sections[idx]?.heading || `Section ${idx}`)
-          .join(' + ');
+        // Build readable section names for the UI
+        const sectionA = sections[suggestion.affectedSections[0]]?.heading || `Section ${suggestion.affectedSections[0]}`;
+        const sectionB = sections[suggestion.affectedSections[1]]?.heading || `Section ${suggestion.affectedSections[1]}`;
 
         proposals.push({
           id: `proposal-structure-${i}`,
           type: 'structure',
           action: suggestion.action,
-          title: suggestion.newHeading || `${suggestion.action.charAt(0).toUpperCase() + suggestion.action.slice(1)} Sections`,
-          description: suggestion.newHeading
-            ? `Merge "${sectionNames}" into: "${suggestion.newHeading}"`
-            : `${suggestion.action} sections: ${sectionNames}`,
+          title: suggestion.newHeading || `Merge: ${sectionA} + ${sectionB}`,
+          description: `Merge "${sectionA}" and "${sectionB}" into a single section: "${suggestion.newHeading}"`,
           affectedSections: suggestion.affectedSections,
           newHeading: suggestion.newHeading,
           rationale: suggestion.rationale,
-          confidenceLevel: suggestion.confidenceLevel, // Include confidence level for transparency
           approved: false
         });
       }
-
-      console.log(`Generated ${proposals.filter(p => p.type === 'structure').length} structure proposals after filtering`);
     }
 
+    console.log(`Generated ${proposals.length} total proposals (${proposals.filter(p => p.type === 'link-fixes').length} link, ${proposals.filter(p => p.type === 'structure').length} structure)`);
     return proposals;
+
   } catch (error) {
     console.error('Error in generateProposals:', error);
     throw error;
@@ -191,15 +180,16 @@ export async function applyChanges(originalContent, approvedProposals, originalS
   try {
     const $ = cheerio.load(originalContent);
 
-    // Apply link fixes
+    // --- Apply link fixes ---
     const linkProposal = approvedProposals.find(p => p.type === 'link-fixes');
-    if (linkProposal) {
+    if (linkProposal && linkProposal.affectedLinks) {
       linkProposal.affectedLinks.forEach(link => {
         $(`a[href="${link.url}"]`).attr('href', '#').addClass('broken-link-removed');
       });
+      console.log(`Removed ${linkProposal.affectedLinks.length} broken links`);
     }
 
-    // Apply structure changes
+    // --- Apply structure changes ---
     const structureProposals = approvedProposals.filter(p => p.type === 'structure');
 
     if (structureProposals.length > 0) {
@@ -208,30 +198,27 @@ export async function applyChanges(originalContent, approvedProposals, originalS
 FULL ORIGINAL CONTENT:
 ${originalContent}
 
-ORIGINAL SECTIONS BREAKDOWN:
-${originalSections.map((s, i) => `Section ${i}: ${s.heading}`).join('\n')}
+ORIGINAL SECTIONS:
+${originalSections.map((s, i) => `Section ${i}: "${s.heading}"`).join('\n')}
 
-APPROVED CHANGES TO APPLY:
-${structureProposals.map(p => `
-- ${p.action}: ${p.description}
-  Rationale: ${p.rationale}
-  Affected sections: ${p.affectedSections.join(', ')}
-  ${p.newHeading ? `New heading: ${p.newHeading}` : ''}
+APPROVED MERGES TO APPLY:
+${structureProposals.map((p, i) => `
+Merge ${i + 1}:
+  - Combine section ${p.affectedSections[0]} ("${originalSections[p.affectedSections[0]]?.heading}") 
+    with section ${p.affectedSections[1]} ("${originalSections[p.affectedSections[1]]?.heading}")
+  - New heading: "${p.newHeading}"
+  - Why: ${p.rationale}
 `).join('\n')}
 
-STRICT INSTRUCTIONS:
-1. Apply ONLY the approved structural changes listed above
-2. Preserve ALL original information, examples, data, and details - do not remove anything
-3. Keep the exact same writing style, tone, and voice as the original
-4. Do NOT introduce new content or opinions
-5. Do NOT merge any sections that are not explicitly listed in approved changes
-6. Return ONLY clean HTML content
-7. Do NOT wrap output in markdown code blocks or backticks
-8. Do NOT add any commentary or explanation outside the HTML
+RULES:
+1. Apply ONLY the merges listed above - do not change anything else
+2. Keep ALL original text, examples, and details - do not remove or summarise content
+3. Preserve the original tone and writing style exactly
+4. For each approved merge: combine the two sections under the new heading
+5. All other sections stay exactly as they are
+6. Return ONLY clean HTML - no markdown, no code blocks, no explanation text
 
-Generate the refreshed content now:`;
-
-      console.log('Applying changes with full original content...');
+Output the full refreshed HTML content now:`;
 
       const response = await genAI.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -240,18 +227,19 @@ Generate the refreshed content now:`;
 
       let refreshedContent = response.text;
 
-      // Strip markdown code blocks if present
+      // Strip any markdown wrapping the AI might add
       refreshedContent = refreshedContent
         .replace(/^```html\s*/i, '')
         .replace(/^```\s*/i, '')
-        .replace(/\s*```$/, '')
+        .replace(/\s*```$/i, '')
         .trim();
 
       return refreshedContent;
     }
 
-    // If no structure changes, return content with only link fixes applied
+    // No structure changes - return with link fixes only
     return $.html();
+
   } catch (error) {
     console.error('Error in applyChanges:', error);
     throw error;

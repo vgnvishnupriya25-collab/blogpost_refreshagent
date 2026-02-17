@@ -1,7 +1,7 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';  //Converts HTML strings into a structure you can query
-import { evaluateLinks } from '../../helpers/linkChecker.js';
-import { analyzeStructure, generateProposals, applyChanges } from '../../helpers/aiAnalyzer.js';
+import { evaluateLinks } from '../helpers/linkChecker.js';
+import { analyzeStructure, generateProposals, applyChanges } from '../helpers/aiAnalyzer.js';
 
 // Fetch blog content from URL
 export async function fetchBlog(req, res) {

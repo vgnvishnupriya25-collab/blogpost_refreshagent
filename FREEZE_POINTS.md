@@ -124,3 +124,11 @@
 ### What feels unclear or risky:
 - **Mock Accuracy**: Mocked AI responses may not reflect real Gemini API behavior variations
 - **Browser Differences**: Frontend tests run in jsdom, which may differ from real browser behavior
+
+
+---
+
+## Freeze Point 9: Prompt was again giving too much suggestions and updated the prompt
+**Date & Time:** Seventh Commit 17-02-2026 04:30PM IST
+### What was implemented:
+- **AI Prompt enhancement**: Refined the analyzeStructure() prompt with concrete examples of when to merge and when not to change the blog content.
