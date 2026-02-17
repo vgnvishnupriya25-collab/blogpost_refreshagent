@@ -6,34 +6,37 @@ dotenv.config();
 
 const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
 
-// Analyze structure with Gemini - CONSERVATIVE approach
+// Analyze structure with Gemini
 export async function analyzeStructure(sections, title) {
   try {
-    const prompt = `You are a careful editorial assistant analyzing a blog post titled "${title}" for structural improvements.
+    const prompt = `You are an expert content strategist analyzing a blog post titled "${title}".
 
-The blog currently has ${sections.length} main sections:
-${sections.map((s, i) => `${i + 1}. ${s.heading}`).join('\n')}
+Current structure has ${sections.length} sections:
+${sections.map((s, i) => `${i}. ${s.heading}`).join('\n')}
 
-STRICT RULES - READ CAREFULLY:
-1. DO NOT suggest merging sections unless they are CLEARLY about the exact same topic with significant overlap
-2. DO NOT reduce sections just to meet a number target - quality over quantity
-3. The 6-section guideline is only relevant if there is GENUINE redundancy - it is NOT a hard rule
-4. A blog with 8-10 well-structured distinct sections is BETTER than a forced merge into 6
-5. ONLY flag needsRestructuring: true if there are OBVIOUS problems like duplicate headings, completely redundant content, or broken flow
-6. When in doubt - always return needsRestructuring: false and leave sections as they are
-7. NEVER merge sections that cover different subtopics even if they seem related
-8. Prefer "keep" actions over "merge" actions
+ANALYSIS GUIDELINES:
+- Look for sections that cover overlapping topics and could be merged for better flow
+- Identify sections that are too granular and would benefit from consolidation
+- Suggest improvements that genuinely enhance readability and user experience
+- Be thoughtful but not overly conservative - good structure matters
+- Aim for 4-7 well-organized sections as a general guideline (not a hard rule)
 
-CONSERVATIVE SCORING:
-- If the blog has fewer than 8 sections → almost certainly needsRestructuring: false
-- If sections have clearly distinct headings → needsRestructuring: false
-- Only suggest a merge if you are 80%+ confident it genuinely improves the post
+WHEN TO SUGGEST CHANGES:
+Two sections cover the same topic from different angles → merge them
+Very short sections that could be combined with related content
+Sections with overlapping themes that break up the narrative flow
+Redundant introductory or concluding sections
 
-Respond ONLY in this JSON format:
+WHEN NOT TO SUGGEST CHANGES:
+Sections cover distinct topics even if related
+Each section serves a unique purpose for the reader
+Current structure already flows logically
+
+Respond in this exact JSON format:
 {
   "needsRestructuring": true/false,
-  "currentSectionCount": number,
-  "restructuringReason": "brief explanation of why restructuring is or is not needed",
+  "currentSectionCount": ${sections.length},
+  "restructuringReason": "brief explanation",
   "suggestions": [
     {
       "action": "merge|rewrite|keep|remove",
@@ -44,8 +47,7 @@ Respond ONLY in this JSON format:
     }
   ]
 }
-
-Only include suggestions with confidenceLevel "high" and "medium". Ignore low confidence ideas entirely.`;
+Be specific and actionable. Only suggest changes you're confident will improve the post.`;
 
     const response = await genAI.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -53,37 +55,34 @@ Only include suggestions with confidenceLevel "high" and "medium". Ignore low co
     });
 
     const responseText = response.text;
+    console.log('AI Structure Analysis Response:', responseText);
 
     // Extract JSON from response
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
 
-      // Extra safety layer: filter out low confidence and "keep" suggestions
+      // Filter to only high and medium confidence suggestions
       if (parsed.suggestions) {
         parsed.suggestions = parsed.suggestions.filter(s =>
-          (s.confidenceLevel === 'high' || s.confidenceLevel === 'medium') && s.action !== 'keep'
+          (s.confidenceLevel === 'high' || s.confidenceLevel === 'medium')
         );
       }
 
-      // Extra safety: if fewer than 8 sections, override to no restructuring
-      // unless AI found very obvious duplicates
-      if (sections.length <= 7 && parsed.suggestions.length === 0) {
-        parsed.needsRestructuring = false;
-      }
-
-      // If no high, medium-confidence suggestions remain, mark as no restructuring needed
+      // If no suggestions remain after filtering, mark as no restructuring needed
       if (!parsed.suggestions || parsed.suggestions.length === 0) {
         parsed.needsRestructuring = false;
+        parsed.restructuringReason = parsed.restructuringReason || 'No high-confidence improvements identified';
       }
 
+      console.log('Parsed structure analysis:', JSON.stringify(parsed, null, 2));
       return parsed;
     }
 
     return {
       needsRestructuring: false,
       currentSectionCount: sections.length,
-      restructuringReason: 'No clear structural issues found',
+      restructuringReason: 'Unable to parse AI response',
       suggestions: []
     };
   } catch (error) {
@@ -92,7 +91,7 @@ Only include suggestions with confidenceLevel "high" and "medium". Ignore low co
   }
 }
 
-// Generate improvement proposals - with conservative filtering
+// Generate improvement proposals - with confidence filtering and aggressive change detection
 export function generateProposals(sections, linkEvals, structureAnalysis) {
   try {
     const proposals = [];
@@ -111,48 +110,73 @@ export function generateProposals(sections, linkEvals, structureAnalysis) {
       });
     }
 
-    // Structure proposals - only if genuinely needed
+    // Structure proposals with safety checks
     if (structureAnalysis.needsRestructuring && structureAnalysis.suggestions.length > 0) {
+      console.log(`Processing ${structureAnalysis.suggestions.length} structure suggestions`);
 
-      // Additional safety check: don't suggest merging more than 40% of sections
-      const totalAffectedSections = structureAnalysis.suggestions
-        .filter(s => s.action === 'merge')
-        .reduce((acc, s) => acc + (s.affectedSections?.length || 0), 0);
+      // Filter to only high and medium confidence suggestions
+      const highMediumSuggestions = structureAnalysis.suggestions.filter(s => 
+        s.confidenceLevel === 'high' || s.confidenceLevel === 'medium'
+      );
 
-      const mergeRatio = totalAffectedSections / sections.length;
+      console.log(`Filtered to ${highMediumSuggestions.length} high/medium confidence suggestions`);
 
-      // If we are merging more than 60% of sections, it is too aggressive - skip
-      if (mergeRatio > 0.6) {
-        console.log(`Skipping restructuring: too aggressive (${Math.round(mergeRatio * 100)}% of sections affected)`);
+      if (highMediumSuggestions.length === 0) {
+        console.log('No high/medium confidence suggestions found');
         return proposals;
       }
 
-      for (let i = 0; i < structureAnalysis.suggestions.length; i++) {
-        const suggestion = structureAnalysis.suggestions[i];
+      // Calculate merge ratio to detect aggressive changes
+      const totalAffectedSections = highMediumSuggestions
+        .filter(s => s.action === 'merge')
+        .reduce((acc, s) => acc + (s.affectedSections?.length || 0), 0);
 
-        // Skip any "keep" actions - no need to show those to user
-        if (suggestion.action === 'keep') continue;
+      // const mergeRatio = totalAffectedSections / sections.length;
 
-        // Only add merge suggestions that affect 2 sections (not bulk merges)
-        if (suggestion.action === 'merge' && suggestion.affectedSections.length > 2) {
+      // // If merging more than 60% of sections, it's too aggressive - skip all structure changes
+      // if (mergeRatio > 0.3) {
+      //   console.log(`Skipping all structure changes: too aggressive (${Math.round(mergeRatio * 100)}% of sections would be merged)`);
+      //   return proposals;
+      // }
+
+      // Process each suggestion
+      for (let i = 0; i < highMediumSuggestions.length; i++) {
+        const suggestion = highMediumSuggestions[i];
+
+        // Validate suggestion has required fields
+        if (!suggestion.affectedSections || suggestion.affectedSections.length === 0) {
+          console.log('Skipping suggestion with no affected sections');
+          continue;
+        }
+
+        // Skip bulk merges (more than 3 sections at once)
+        if (suggestion.action === 'merge' && suggestion.affectedSections.length > 3) {
           console.log(`Skipping bulk merge of ${suggestion.affectedSections.length} sections - too aggressive`);
           continue;
         }
+
+        // Create user-friendly description
+        const sectionNames = suggestion.affectedSections
+          .map(idx => sections[idx]?.heading || `Section ${idx}`)
+          .join(' + ');
 
         proposals.push({
           id: `proposal-structure-${i}`,
           type: 'structure',
           action: suggestion.action,
-          title: `${suggestion.action.charAt(0).toUpperCase() + suggestion.action.slice(1)} Sections`,
+          title: suggestion.newHeading || `${suggestion.action.charAt(0).toUpperCase() + suggestion.action.slice(1)} Sections`,
           description: suggestion.newHeading
-            ? `Merge into: "${suggestion.newHeading}"`
-            : `${suggestion.action} section(s): ${suggestion.affectedSections.map(i => `"${sections[i]?.heading || i}"`).join(', ')}`,
+            ? `Merge "${sectionNames}" into: "${suggestion.newHeading}"`
+            : `${suggestion.action} sections: ${sectionNames}`,
           affectedSections: suggestion.affectedSections,
           newHeading: suggestion.newHeading,
           rationale: suggestion.rationale,
+          confidenceLevel: suggestion.confidenceLevel, // Include confidence level for transparency
           approved: false
         });
       }
+
+      console.log(`Generated ${proposals.filter(p => p.type === 'structure').length} structure proposals after filtering`);
     }
 
     return proposals;

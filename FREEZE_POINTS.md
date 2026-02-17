@@ -84,3 +84,13 @@
 - **Broken link improvement**: Updated the timeout to have 30sec so that even if some of the links take some time to reach their server then it'll consider it instead of removing it.
 - **UI improvement for Side by Side view**: Improved side by side view to Sync the scroll for Original Context and Refreshed context.
 - **UI improvement for Diff view**: Removed the HTML tags from Diff view tab and added the actual content in it show the actual changes. 
+
+---
+
+## Freeze Point 7: Removed too much conservative prompt and fixed finding broken links logic
+**Date & Time:** Seventh Commit 17-02-2026 11:40AM IST
+
+### What was implemented:
+- **AI Prompt enhancement**: Changed the analyzeStructure() function AI prompt to only suggest the improvements when it's sensible. Also classified the changes into high, medium, low and now only considering high, medium level of changes. 
+- **Broken link improvement**: Updated the evaluateLinks() function to allow all possible links and increased the timeout by 20s because few of the links are taking so time to load, if we increase more than that then UI experience will not be better and also handled the error statuscodes in the linkChecker.js itself. Also added the code to handle all of the other possible link types like .pdf, .docs etc because its not returning success statuscodes in header so its coming under broken links.
+- **UI improvements**: Enhanced app.css file to improve its stylings and colors.

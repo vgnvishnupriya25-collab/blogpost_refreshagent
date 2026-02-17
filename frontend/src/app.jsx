@@ -354,7 +354,7 @@ function App() {
         {step === 'analyzing' && (
           <div className="card loading-card">
             <div className="spinner"></div>
-            <h3>Analyzing blog post...</h3>
+            <h3>🔍 Analyzing blog post...</h3>
             <p>Checking links, evaluating structure, and generating improvement proposals</p>
           </div>
         )}
@@ -535,8 +535,8 @@ function App() {
         {step === 'generating' && (
           <div className="card loading-card">
             <div className="spinner"></div>
-            <h3>Generating refreshed content...</h3>
-            <p>Applying your approved changes</p>
+            <h3> Generating refreshed content...</h3>
+            <p>Applying your approved changes with AI magic</p>
           </div>
         )}
 
