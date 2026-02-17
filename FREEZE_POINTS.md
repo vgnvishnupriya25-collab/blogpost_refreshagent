@@ -94,3 +94,6 @@
 - **AI Prompt enhancement**: Changed the analyzeStructure() function AI prompt to only suggest the improvements when it's sensible. Also classified the changes into high, medium, low and now only considering high, medium level of changes. 
 - **Broken link improvement**: Updated the evaluateLinks() function to allow all possible links and increased the timeout by 20s because few of the links are taking so time to load, if we increase more than that then UI experience will not be better and also handled the error statuscodes in the linkChecker.js itself. Also added the code to handle all of the other possible link types like .pdf, .docs etc because its not returning success statuscodes in header so its coming under broken links.
 - **UI improvements**: Enhanced app.css file to improve its stylings and colors.
+
+### Decisions postponed:
+- **Broken links for human detection**: Few of the links like Facebook, Instagram etc and all detecting the Human interaction after that only it's allowing to access the link but here we're using axios call to connect with it so it's not opening the link.
