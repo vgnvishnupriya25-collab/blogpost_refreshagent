@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { fetchBlog, analyzeBlog, applyBlogChanges } from './controllers/blogController.js';
+import { fetchBlog, analyzeBlog, applyBlogChanges } from '../controllers/blogController.js';
 
 dotenv.config();
 

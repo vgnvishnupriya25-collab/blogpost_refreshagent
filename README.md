@@ -173,6 +173,28 @@ Applies approved changes to content
 
 See `FREEZE_POINTS.md` for detailed development checkpoints, known risks, and postponed decisions.
 
+## Testing
+
+Comprehensive test suites are available for both backend and frontend.
+
+### Running Tests
+
+**Backend Tests:**
+```bash
+cd backend
+npm test                 # Run all tests
+npm run test:watch       # Watch mode
+npm run test:coverage    # With coverage report
+```
+
+**Frontend Tests:**
+```bash
+cd frontend
+npm test                 # Run all tests
+npm run test:watch       # Watch mode
+npm run test:coverage    # With coverage report
+```
+
 ## Tech Stack
 
 **Backend:**
@@ -180,9 +202,11 @@ See `FREEZE_POINTS.md` for detailed development checkpoints, known risks, and po
 - Google GenAI SDK (`@google/genai`)
 - Cheerio (HTML parsing)
 - Axios (HTTP requests)
+- Jest (testing)
 
 **Frontend:**
 - React + Vite
 - diff (text comparison)
 - turndown (HTML to Markdown)
 - html-react-parser (safe HTML rendering)
+- Vitest + React Testing Library (testing)

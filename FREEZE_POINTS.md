@@ -97,3 +97,30 @@
 
 ### Decisions postponed:
 - **Broken links for human detection**: Few of the links like Facebook, Instagram etc and all detecting the Human interaction after that only it's allowing to access the link but here we're using axios call to connect with it so it's not opening the link.
+
+
+---
+
+## Freeze Point 8: Implemented Test Suite and modified file structure
+**Date & Time:** Eighth Commit 17-02-2026 3:44PM IST
+
+### What was implemented:
+- **Backend Test Suite**: Created scenario based test cases covering:
+  - API endpoint validation
+  - Link validation logic
+  - AI analyzer functions with confidence filtering
+  - Error handling and edge cases
+
+- **Frontend Test Suite**: Created scenario based test cases covering:
+  - Complete user workflows
+  - UI component rendering and state management
+  - User interactions
+  - File downloads (HTML, Markdown)
+  - View mode switching (side-by-side, diff)
+  - Error states and recovery
+
+- **File Structure**: Modified the file structure for backend and frontend that has executing codes in src folder and test suites in test folder for better readability.
+
+### What feels unclear or risky:
+- **Mock Accuracy**: Mocked AI responses may not reflect real Gemini API behavior variations
+- **Browser Differences**: Frontend tests run in jsdom, which may differ from real browser behavior
